@@ -1,0 +1,146 @@
+
+#| echo: FALSE  
+#| warning: FALSE 
+#| message: false
+
+rm(list = ls()) 
+library(deSolve)
+
+# Quarantine level: 0, Population: 3mil, Duration: 360days (1 year)
+quarantine_ratio <- 0 
+totalpopulation <- 3000000000 
+duration <-547
+
+# ODE model equations
+DiseaseXmodel = function(Time, State, Params) {
+  with(as.list(c(State, Params)), {
+    Itotal = 0.10*(E_NQ) + I_U + 0.38*I_D     
+    
+    # 1. Susceptible High Risk quarantined S_HQ
+    dS_HQdt = k*(1-b0)*q*S_H*Itotal/N0 - r_Q*S_HQ
+    # 2. Susceptible High Risk S_H 
+    dS_Hdt = r_Q*S_HQ - k*q*(1-b0)*S_H*Itotal/N0 - k*(1 - q)*b0*S_H*Itotal/N0 - k*q*b0*S_H*Itotal/N0
+    # 3. Susceptible Low Risk quarantined S_LQ
+    dS_LQdt = k*(1-b1)*q*S_L*Itotal/N0 -r_Q*S_LQ
+    # 4. Susceptible Low Risk S_L 
+    dS_Ldt = r_Q*S_LQ - k*q*(1-b1)*S_L*Itotal/N0 - k*(1 - q)*b1*S_L*Itotal/N0 - k*q*b1*S_L*Itotal/N0
+    # 5. Latent infection quarantined E_Q
+    dE_Qdt = k*q*b0*Itotal*S_H/N0 + k*q*b1*Itotal*S_L/N0 - p*E_Q 
+    # 6. Latent infection NOT quarantined E_NQ
+    dE_NQdt = k*(1-q)*b0*Itotal*S_H/N0 + k*(1-q)*b1*Itotal*S_L/N0 - p*E_NQ 
+    # 7. Infectious quarantined I_Q
+    dI_Qdt = p*E_Q - I_Q*(m+w1+v0) 
+    # 8. Infectious undetected (not quarantined) I_U 
+    dI_Udt = p*E_NQ - I_U*(m+w2+v0) 
+    # 9. Infectious diagnosed (treated) I_D
+    dI_Ddt = w1*I_Q + w2*I_U - m*I_D - v1*I_D
+    # 10. DiseaseX deaths
+    dDdt = m*(I_Q + I_U + I_D)
+    # 11. Recovered immune 
+    dRdt = v0*(I_Q + I_U) + v1*I_D
+    
+    return(list(c(dS_HQdt, dS_Hdt, dS_LQdt, dS_Ldt,
+                  dE_Qdt, dE_NQdt,
+                  dI_Qdt, dI_Udt, dI_Ddt,
+                  dRdt, dDdt)))
+  }) 
+}
+
+# Vector of parameter values
+params = c(k = 10, # (1/day); baseline daily number of contacts per capita
+           b0 = 0.075, # probability of urban transmission per contact between susceptible and infectious
+           b1 = 0.30*0.075, # probability of rural transmission per contact between susceptible and infectious  
+           p = 1/3, # (1/day); inverse of mean time for progression from exposed(latent infected) to infectious
+           v0 = 1/8, # (1/day); per capita recovery rate
+           v1 = 1/5, # (1/day); per capita recovery rate, treated properly
+           m = 0.006, # (1/day); per capita death rate
+           w1 = 1/3, # (1/day); mean daily rate at which infectious are diagnosed and treated properly
+           w2 = 1/3, # (1/day); mean daily rate at which infectious are diagnosed and treated properly
+           r_Q = 1/10, # (1/day); inverse of average time of quarantine for susceptible and not infectious
+           q = quarantine_ratio, # fraction; for definition, see lecture slides
+           N0 = totalpopulation # number of humans in at-risk population
+)
+
+# Vector of initial conditions
+yiniValues = c(S_HQ = 0, S_H = totalpopulation*0.4-7 ,S_LQ = 0, S_L = totalpopulation*0.6,
+               E_Q = 0, E_NQ = 0,
+               I_Q = 0, I_U = 5, I_D = 0,
+               R = 0, D = 2)
+
+# Specify the time interval you would like to save results for
+times = seq(0, duration, by = 10) 
+
+# Calculate output using ode function from library deSolve
+modelResults = as.data.frame(ode(func = DiseaseXmodel, y = yiniValues,parms = params, times = times))
+
+
+
+
+
+#pdf("GRAPH.pdf", width = 20, height = 10)  # Adjust size as needed
+png("GRAPH.png", width = 3000, height = 1500, res = 300)
+
+# Set up 2x3 grid layout
+par(mfrow = c(1, 3))
+#par(oma = c(1, 1, 2, 1))  # Outer margins
+#par(mar = c(5, 4, 4, 5))  # Inner margins
+
+# Font sizes
+cex_main <- 1.5
+cex_lab <- 1.2
+cex_axis <- 1.5
+cex_legend <- 1
+
+# ========== First Row ==========
+# Plot 1: S_H, S_L vs. S_HQ, S_LQ
+plot(modelResults$time, modelResults$S_H, type = "l",
+     xlab = "Time (days)", ylab = "Number of people",
+     xlim = c(0, duration), ylim = c(0, 0.7 * totalpopulation),
+     main = paste("DiseaseX Dynamics with q =", quarantine_ratio),
+     col = "black", lty = "solid", lwd = 3,
+     cex.main = cex_main, cex.lab = cex_lab, cex.axis = cex_axis)
+lines(modelResults$time, modelResults$S_L, col = "black", lty = "dashed", lwd = 3)
+lines(modelResults$time, modelResults$S_HQ, col = "blue", lty = "solid", lwd = 3)
+lines(modelResults$time, modelResults$S_LQ, col = "blue", lty = "dashed", lwd = 3)
+legend("topright", legend = c("S_H", "S_L", "S_HQ", "S_LQ"),
+       col = c("black", "black", "blue", "blue"),
+       lty = c("solid", "dashed", "solid", "dashed"),
+       lwd = 3, cex = cex_legend)
+
+# Plot 2: R vs. D
+plot(modelResults$time, modelResults$R, type = "l",
+     xlab = "Time (days)", ylab = "Number of people",
+     xlim = c(0, duration), ylim = c(0, 0.7*totalpopulation),
+     main = paste("DiseaseX Dynamics with q =", quarantine_ratio),
+     col = "forestgreen", lwd = 3,
+     cex.main = cex_main, cex.lab = cex_lab, cex.axis = cex_axis)
+par(new = TRUE)
+plot(modelResults$time, modelResults$D, type = "l", xlab = "", ylab = "",
+     axes = FALSE, col = "red", lwd = 3, xlim = c(0, duration), ylim = c(0, 0.05 * totalpopulation))
+axis(side = 4, col = "red", col.axis = "red", lwd = 2)
+legend("topright", legend = c("R", "D"),
+       col = c("forestgreen", "red"), lty = c("solid", "solid"),
+       lwd = 3, cex = cex_legend)
+
+# Plot 3: I_Q, I_U, I_D vs. E_Q, E_NQ
+plot(modelResults$time, modelResults$I_Q, type = "l",
+     xlab = "Time (days)", ylab = "Number of people",
+     xlim = c(0, duration), ylim = c(0, 0.05 * totalpopulation),
+     main = paste("DiseaseX Dynamics with q =", quarantine_ratio),
+     col = "darkorange", lwd = 3,
+     cex.main = cex_main, cex.lab = cex_lab, cex.axis = cex_axis)
+lines(modelResults$time, modelResults$I_U, col = "gold1", lwd = 3)
+lines(modelResults$time, modelResults$I_D, col = "maroon", lwd = 3)
+par(new = TRUE)
+
+plot(modelResults$time, modelResults$E_Q, type = "l", xlab = "", ylab = "",
+     axes = FALSE, col = "black", lty = "dotted", lwd = 3,
+     xlim = c(0, duration), ylim = c(0, 0.05 * totalpopulation))
+lines(modelResults$time, modelResults$E_NQ, col = "black", lty = "dashed", lwd = 3)
+axis(side = 4, col.axis = "black", lwd = 2)
+legend("topright", legend = c("I_Q", "I_U", "I_D", "E_Q", "E_NQ"),
+       col = c("darkorange", "gold1", "maroon", "black", "black"),
+       lty = c("solid", "solid", "solid", "dotted", "dashed"),
+       lwd = 3, cex = cex_legend)
+
+dev.off()
