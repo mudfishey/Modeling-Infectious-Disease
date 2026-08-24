@@ -16,5 +16,5 @@ By defining transition rates between compartments, these models can be used to s
 
 | Project | Description |
 |----------|-------------|
-| ./Basic%20ODE%20model/BasicODE.md | A foundational implementation of compartmental disease modeling using ordinary differential equations (ODEs). This project introduces the mathematical framework behind disease transmission dynamics and numerical simulation methods. |
-| ./Disease%20X/Disease%20X.md | An application of compartmental disease modeling to a COVID-19-like outbreak scenario. This project explores disease spread dynamics, model assumptions, and simulation results under various conditions. |
+| [Basic ODE model](./Basic%20ODE%20model/BasicODE.md) | A foundational implementation of compartmental disease modeling using ordinary differential equations (ODEs). This project introduces the mathematical framework behind disease transmission dynamics and numerical simulation methods. |
+| [Disease X](./Disease%20X/DiseaseX.md) | An application of compartmental disease modeling to a COVID-19-like outbreak scenario. This project explores disease spread dynamics, model assumptions, and simulation results under various conditions. |
